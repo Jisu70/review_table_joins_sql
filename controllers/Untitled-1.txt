@@ -1,0 +1,38 @@
+const getReview = async (req, res) => {
+  try {
+    const query = `SELECT reviews.company_id FROM reviews GROUP BY company_id;`;
+  
+    connection.query(query, async function (err, results) {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      try {
+        const promises = results.map(async (company) => {
+          const review = await fetchReviewFunction(company.company_id);
+          const count = await countFunction(company.company_id);
+
+          // Fetch tags for each review item
+          const updatedReview = await Promise.all(review.map(async (item) => {
+            const tagData = await fetchTagFunction(item.id);
+            item.tags = tagData;
+            return item;
+          }));
+
+          company.reviewCount = count;
+          company.reviews = updatedReview;
+          return company;
+        });
+
+        const updatedResults = await Promise.all(promises);
+
+        res.status(200).json({ Company: updatedResults });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: error.message });
+  }
+};
